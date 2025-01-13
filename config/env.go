@@ -24,7 +24,7 @@ func initDatabaseConfig() Config {
 		DBUser:     getEnv("DB_USER", ""),
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBAddress:  fmt.Sprintf("%s:%s", getEnv("DB_HOST", ""), getEnv("DB_PORT", "")),
-		DBName:     getEnv("DB_NAME", "ecom_bot"),
+		DBName:     getEnv("DB_NAME", "planLog"),
 	}
 }
 
