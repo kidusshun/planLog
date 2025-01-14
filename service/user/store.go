@@ -35,6 +35,7 @@ func ScanRowToUser(rows *sql.Row) (*User, error) {
 		&user.ID,
 		&user.Name,
 		&user.Email,
+		&user.GoogleAccessToken,
 		&user.ProfilePicture,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -61,8 +62,8 @@ func (s *Store) GetUserByID(id uuid.UUID) (*User, error) {
 
 }
 
-func (s *Store) CreateUser(name, email, picture string) (*User, error) {
-	row := s.db.QueryRow("INSERT INTO users (name, email, profile_picture) VALUES ($1, $2, $3) RETURNING id, name, email, profile_picture, created_at, updated_at", name, email, picture)
+func (s *Store) CreateUser(name, email,googleAccessToken, picture string) (*User, error) {
+	row := s.db.QueryRow("INSERT INTO users (name, email,google_access_token, profile_picture) VALUES ($1, $2, $3, $4) RETURNING id, name, email,google_access_token, profile_picture, created_at, updated_at", name, email,googleAccessToken, picture)
 	
 	createdUser, err := ScanRowToUser(row)
 	if err != nil {

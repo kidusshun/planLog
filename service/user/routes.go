@@ -64,7 +64,7 @@ func (h *Handler) googleSignupOrLogin(w http.ResponseWriter, r *http.Request) {
 
 		if err == sql.ErrNoRows {
 
-			user, err := h.store.CreateUser(user.Name, user.Email, user.Picture)
+			user, err := h.store.CreateUser(user.Name, user.Email,user.GoogleAccessToken, user.Picture)
 			if err != nil {
 				log.Println("error4", err)
 				utils.WriteError(w, http.StatusInternalServerError, err)
@@ -78,6 +78,7 @@ func (h *Handler) googleSignupOrLogin(w http.ResponseWriter, r *http.Request) {
 			}
 			response := LoginResponse{
 				Token: jwtToken,
+				IsNewUser: true,
 			}
 			utils.WriteJSON(w, http.StatusOK, response)
 			
@@ -97,6 +98,7 @@ func (h *Handler) googleSignupOrLogin(w http.ResponseWriter, r *http.Request) {
 
 	response := LoginResponse{
 		Token: jwtToken,
+		IsNewUser: false,	
 	}
 	utils.WriteJSON(w, http.StatusOK, response)
 
