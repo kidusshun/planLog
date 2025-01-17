@@ -9,7 +9,7 @@ import (
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id uuid.UUID) (*User, error)
-	CreateUser(name, email,googleAccessToken, picture string) (*User, error)
+	CreateUser(name, email,googleAccessToken,refreshToken, picture string) (*User, error)
 }
 
 type User struct {
@@ -17,6 +17,7 @@ type User struct {
 	Name 	string    `json:"name"`
 	Email	 string    `json:"email"`
 	GoogleAccessToken string `json:"google_access_token"`
+	GoogleRefreshToken string `json:"google_refresh_token"`
 	ProfilePicture string `json:"profile_picture"`
 	CreatedAt time.Time    `json:"created_at"`
 	UpdatedAt time.Time    `json:"updated_at"`
@@ -24,12 +25,12 @@ type User struct {
 
 type LoginPayload struct {
 	AccessToken string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type GoogleUser struct {
 	Name string `json:"name"`
 	Email string `json:"email"`
-	GoogleAccessToken string `json:"google_access_token"`
 	Picture string `json:"picture"`
 }
 

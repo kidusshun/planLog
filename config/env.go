@@ -35,6 +35,7 @@ type GoogleConfig struct {
 
 type GeminiConfig struct {
 	GeminiAPIKey string
+	GroqAPIKey string
 }
 
 type ShippoConfig struct {
@@ -65,6 +66,7 @@ func initGeminiAPIConfig() GeminiConfig {
 	godotenv.Load()
 	return GeminiConfig{
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		GroqAPIKey: getEnv("GROQ_API_KEY", ""),
 	}
 }
 

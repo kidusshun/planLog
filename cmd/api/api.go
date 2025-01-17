@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/kidusshun/planLog/service/calendar"
 	"github.com/kidusshun/planLog/service/user"
 )
 
@@ -39,6 +40,10 @@ func (s *APIServer) Run() error {
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(router)
+
+	calendarHandler := calendar.NewHandler(userStore)
+	calendarHandler.RegisterRoutes(router)
+
 
 	log.Println("Listening on ", s.addr)
 	err := http.ListenAndServe(s.addr, router)
