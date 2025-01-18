@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/kidusshun/ecom_bot/config"
+	"github.com/kidusshun/planLog/config"
 )
 
 func GeminiClient(userRequest GeminiRequestBody) (*GeminiResponseBody, error) {

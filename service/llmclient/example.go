@@ -41,8 +41,8 @@ func (client *llmclient) CallGemini(messageHistory []Message, tools []Tool) (*Ge
 func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) (*ToolCallResponse, error) {
 
 	nameFunctionMap := map[string]interface{}{
-		"QueryProducts": client.tools.QueryProducts,
-		"CompanyInfo":   client.tools.CompanyInfo,
+		"CreateEvents": client.tools.CreateEvents,
+		"FetchEvents":   client.tools.FetchEvents,
 	}
 
 	functionCalls := geminiresponse.Candidates[0].Content.Parts
@@ -56,7 +56,7 @@ func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) 
 				case "QueryProducts":
 					query, ok := args["query"].(string)
 					if !ok {
-						return &ToolCallResponse{}, errors.New("Invalid argument for QueryProducts")
+						return &ToolCallResponse{}, errors.New("invalid argument for queryProducts")
 					}
 					result, err := function.(func(string) (*ToolCallResponse, error))(query)
 					if err != nil {
@@ -66,7 +66,7 @@ func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) 
 				case "CompanyInfo":
 					query, ok := args["query"].(string)
 					if !ok {
-						return &ToolCallResponse{}, errors.New("Invalid argument for CompanyInfo")
+						return &ToolCallResponse{}, errors.New("invalid argument for companyInfo")
 					}
 					result,err := function.(func(string) (*ToolCallResponse, error))(query)
 					if err != nil {
@@ -76,7 +76,7 @@ func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) 
 				case "TrackOrder":
 					orderID, ok := args["orderID"].(string)
 					if !ok {
-						return &ToolCallResponse{}, errors.New("Invalid argument for TrackOrder")
+						return &ToolCallResponse{}, errors.New("invalid argument for trackOrder")
 					}
 					result, err := function.(func(string) (*ToolCallResponse, error))(orderID)
 					if err != nil {
@@ -84,12 +84,12 @@ func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) 
 					}
 					return result, nil
 				default:
-					return &ToolCallResponse{},errors.New("Function not found")
+					return &ToolCallResponse{},errors.New("function not found")
 				}
 				} else {
-				return &ToolCallResponse{},errors.New("Function not found")
+				return &ToolCallResponse{},errors.New("function not found")
 			}
 		}
 	}
-	return &ToolCallResponse{},errors.New("Function not found")
+	return &ToolCallResponse{},errors.New("function not found")
 }

@@ -3,7 +3,7 @@ package llmclient
 import (
 	"encoding/json"
 
-	"github.com/kidusshun/ecom_bot/service/product"
+	"github.com/kidusshun/planLog/service/user"
 )
 
 type LlmClient interface{
@@ -12,8 +12,8 @@ type LlmClient interface{
 }
 
 type Tools interface{
-	CompanyInfo(query string) (*ToolCallResponse, error)
-	QueryProducts(query string) (*ToolCallResponse, error)
+	CreateEvents(summary, description string, user user.User) (*ToolCallResponse, error)
+	FetchEvents(query string) (*ToolCallResponse, error)
 }
 
 type GeminiRequestBody struct {
@@ -168,5 +168,13 @@ type UsageMetadata struct {
 type ToolCallResponse struct {
 	ModelResponse Message `json:"model_response"`
 	Location string `json:"location"`
-	Products []product.Product `json:"products"`
+}
+
+type ChatRequest struct {
+	Message string `json:"message" validate:"required"`
+}
+
+type ChatResponse struct {
+	Content string `json:"content"`
+	Role string `json:"role"`
 }

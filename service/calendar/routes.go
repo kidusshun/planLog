@@ -2,6 +2,7 @@ package calendar
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,6 +31,7 @@ func NewHandler(store user.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router chi.Router) {
 	router.With(auth.CheckBearerToken).Post("/initialize_calendar",h.createPlanAndLogCalendar)
 	router.With(auth.CheckBearerToken).Post("/Plan_or_log", h.planAndLog)
+	router.With(auth.CheckBearerToken).Get("/calendars", h.calendars)
 }
 
 func (h *Handler) createPlanAndLogCalendar(w http.ResponseWriter, r *http.Request) {
@@ -148,6 +150,52 @@ func (h *Handler) planAndLog(w http.ResponseWriter,r *http.Request) {
 
 }
 
+func (h *Handler) calendars (w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	
+	userEmail := r.Context().Value("userEmail").(string)
+	user, err := h.store.GetUserByEmail(userEmail)
+
+	if err != nil {
+		log.Println("error1",err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// create calendar
+	log.Println("hereeeeee", user.GoogleRefreshToken)
+	oauthToken := &oauth2.Token{
+		RefreshToken: user.GoogleRefreshToken, 
+	}
+	client := auth.GoogleOAuthConfig.Client(ctx,oauthToken)
+
+	srv, err := calendar.New(client)
+	if err != nil {
+		log.Println("error2",err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	calendarList, err := srv.CalendarList.List().Do()
+	if err != nil {
+		client, err = RefreshOAuthToken(ctx, user.Email, h.store, auth.GoogleOAuthConfig, user.GoogleRefreshToken)
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+		log.Println("Refreshing token...")
+		srv, err = calendar.New(client)
+		if err != nil {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	for _, cal := range calendarList.Items {
+
+		log.Println("Calendar ID:", cal.Id, "Summary:", cal.Summary)
+	}
+}
+
 func parseAudioRequest(r *http.Request) ([]byte, string, error) {
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
@@ -166,4 +214,33 @@ func parseAudioRequest(r *http.Request) ([]byte, string, error) {
 		return nil, "", err
 	}
 	return audioData, fileHeader.Filename, nil
+}
+
+
+func RefreshOAuthToken(ctx context.Context, userEmail string, userStore user.UserStore, config *oauth2.Config, oldRefreshToken string) (*http.Client, error) {
+	log.Println("CAAAAAAAALLLLLED")
+	// Create a token source using the refresh token
+	tokenSource := config.TokenSource(ctx, &oauth2.Token{RefreshToken: oldRefreshToken})
+
+	// Get a new token
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		log.Println("this",err)
+		return nil, fmt.Errorf("failed to refresh token: %w", err)
+	}
+
+	// Check if Google returned a new refresh token
+	if newToken.RefreshToken != "" && newToken.RefreshToken != oldRefreshToken {
+		log.Println("New refresh token received, updating database...")
+
+		// Update the refresh token in the database
+		err := userStore.UpdateUserRefreshToken(userEmail, newToken.RefreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update refresh token in DB: %w", err)
+		}
+	}
+	log.Println("neeeeeeew",newToken.RefreshToken)
+
+	client := config.Client(ctx, newToken)
+	return client, nil
 }

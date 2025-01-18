@@ -10,6 +10,7 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id uuid.UUID) (*User, error)
 	CreateUser(name, email,googleAccessToken,refreshToken, picture string) (*User, error)
+	UpdateUserRefreshToken(email, refreshToken string) error
 }
 
 type User struct {

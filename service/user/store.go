@@ -72,3 +72,11 @@ func (s *Store) CreateUser(name, email,googleAccessToken, refreshToken, picture 
 	}
 	return createdUser, nil
 }
+
+func (s *Store) UpdateUserRefreshToken(email, refreshToken string) error {
+	_, err := s.db.Exec("UPDATE users SET refresh_token = $1 WHERE email = $2", refreshToken, email)
+	if err != nil {
+		return err
+	}
+	return nil
+}
