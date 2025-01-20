@@ -7,8 +7,8 @@ import (
 )
 
 type LlmClient interface{
-	CallGemini(messageHistory []Message, tools []Tool) (*GeminiResponseBody, error)
-	HandleFunctionCall(userEntity *user.User, geminiresponse *GeminiResponseBody)(*ToolCallResponse, error)
+	CallGemini(messageHistory []Message, tools []Tool, systemMessage string) (*GeminiResponseBody, error)
+	HandleFunctionCall(userEntity *user.User, geminiresponse *GeminiResponseBody)*Message
 }
 
 type Tools interface{
@@ -166,7 +166,7 @@ type UsageMetadata struct {
 }
 
 type ToolCallResponse struct {
-	ModelResponse Message `json:"model_response"`
+	Part Part `json:"parts,omitempty"`
 }
 
 type ChatRequest struct {

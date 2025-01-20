@@ -40,12 +40,26 @@ func (h *Handler) RegisterRoutes(router chi.Router) {
 func (h *Handler) createPlanAndLogCalendar(w http.ResponseWriter, r *http.Request) {
 	
 	userEmail := r.Context().Value("userEmail").(string)
-	response, err := h.service.CreateCalendar(userEmail)
-
+	userEntity, err := h.store.GetUserByEmail(userEmail)
 	if err != nil {
+		log.Println("err1",err)
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	response, err := h.service.CreateCalendar(userEmail)
+	
+	if err != nil {
+		log.Println("err2",err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	err = h.store.AddCalendarIDToUser(userEntity.ID, response.PlanCalendar.Id, response.LogCalendar.Id)
+	
+	if err != nil {
+		log.Println("err2",err)
+		utils.WriteError(w, http.StatusInternalServerError, err)
+	}
+
 
 	utils.WriteJSON(w, http.StatusOK, response)
 
@@ -60,11 +74,12 @@ func (h *Handler) planAndLog(w http.ResponseWriter,r *http.Request) {
 	}
 
 	response, err := h.service.Transcribe(audioData, fileName)
-
+	
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}	
+	log.Println("transcription", response.Text)
 	// message := r.FormValue("message")
 	chatResponse, err := h.service.Chat(userEmail, llmclient.ChatRequest{
 		Message: response.Text,

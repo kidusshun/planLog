@@ -11,6 +11,8 @@ type UserStore interface {
 	GetUserByID(id uuid.UUID) (*User, error)
 	CreateUser(name, email,googleAccessToken,refreshToken, picture string) (*User, error)
 	UpdateUserRefreshToken(email, refreshToken string) error
+	AddCalendarIDToUser(id uuid.UUID, planCalendarId, logCalendarId string) error
+	GetCalendarIDByUserID(id uuid.UUID) (string, string, error)
 }
 
 type User struct {

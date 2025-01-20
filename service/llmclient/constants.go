@@ -1,12 +1,7 @@
 package llmclient
 
-import (
-	"fmt"
-	"time"
-)
-
-var (
-	SystemInstruction = fmt.Sprintf(
+const (
+	SystemInstruction =
 		`
 			You are an assistant that can help you create and manage events on my calendar.
 			I have two calendars. One is to write my plans and the other is to log what I've been doing each day.
@@ -20,8 +15,5 @@ var (
 			1. CreateEvent
 			2. FetchEvents
 
-			The time and date right now is %s
-
-	`, time.Now(),
-	)
+	`
 )

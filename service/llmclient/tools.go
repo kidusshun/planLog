@@ -22,7 +22,6 @@ func NewQueryStore() *QueryStore {
 }
 
 func (s *QueryStore) CreateEvents(summary, description, startTime, endTime, calendarId string, userEntity *user.User) (*ToolCallResponse, error) {
-	log.Println("creating", startTime, endTime)
 	ctx := context.Background()
 
 	oauthToken := &oauth2.Token{
@@ -48,27 +47,23 @@ func (s *QueryStore) CreateEvents(summary, description, startTime, endTime, cale
 		},
 
 	}
-	event, err = srv.Events.Insert("Plans", event).Do()
+	event, err = srv.Events.Insert(calendarId, event).Do()
 	if err != nil {
+		log.Println("error creating event", err)
 		return &ToolCallResponse{}, err
 	}
 
-	response := Message{
-		Role: USER,
-		Parts: []Part{
-			{
-				FunctionResponse: &FunctionResponse{
-					Name: "CreateCalendar",
-					Response: Result{
-						Result: fmt.Sprintf("Event created: %s\n", event.HtmlLink),
-					},
+	part := Part{
+			FunctionResponse: &FunctionResponse{
+				Name: "CreateCalendar",
+				Response: Result{
+					Result: fmt.Sprintf("Event created: %s\n", event.HtmlLink),
 				},
 			},
-		},
 	}
-
+	
 	return &ToolCallResponse{
-		ModelResponse:response,
+		Part: part,
 	}, nil
 }
 
@@ -116,22 +111,17 @@ func (s *QueryStore) FetchEvents(startTime, endTime, calendarId string, userEnti
 	}
 
 	eventsString := string(eventsJSON)
-	response := Message{
-		Role: USER,
-		Parts: []Part{
-			{
+	part := Part{
 				FunctionResponse: &FunctionResponse{
 					Name: "CreateCalendar",
 					Response: Result{
 						Result: eventsString,
 					},
 				},
-			},
-		},
-	}
+		}
 
 	return &ToolCallResponse{
-		ModelResponse: response,
+		Part: part,
 	}, nil
 
 }

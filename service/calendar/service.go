@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/kidusshun/planLog/service/auth"
 	"github.com/kidusshun/planLog/service/llmclient"
@@ -32,6 +33,7 @@ func (chat *Service) Chat(userEmail string, request llmclient.ChatRequest) (llmc
 	if err != nil {
 		return llmclient.ChatResponse{}, err
 	}
+	
 	tools := llmclient.GetTools()
 	chatHistory := []llmclient.Message{
 		{
@@ -44,9 +46,29 @@ func (chat *Service) Chat(userEmail string, request llmclient.ChatRequest) (llmc
 		},
 	}
 
-	response, err := chat.client.CallGemini(chatHistory, tools)
+	timeRightNow := fmt.Sprintf(`
+	The time and date in ISO 8601 format right now is %s
+	This is the reference time to be used when you are to create and fetch events by the user
+	`, time.Now().Format(time.RFC3339))
 
-	log.Println("RESPONSE", response.Candidates[0].Content.Parts[0].FunctionCall)
+	planCalendarId, logCalendarId, err := chat.store.GetCalendarIDByUserID(userEntity.ID)
+
+	if err != nil {
+		return llmclient.ChatResponse{}, err
+	}
+
+	userCalendars := fmt.Sprintf(`
+	The plan calendar id is %s
+	The log calendar id is %s
+
+	This are the id's to be used when creating and fetching events.
+	`, planCalendarId, logCalendarId)
+
+	systemMessage := llmclient.SystemInstruction + timeRightNow + userCalendars
+
+	response, err := chat.client.CallGemini(chatHistory, tools, systemMessage)
+
+
 
 	if err != nil {
 		return llmclient.ChatResponse{}, err
@@ -59,21 +81,27 @@ func (chat *Service) Chat(userEmail string, request llmclient.ChatRequest) (llmc
 	var chatResponse llmclient.ChatResponse
 
 	for response.Candidates[0].Content.Parts[0].FunctionCall != nil {
-		call_result, err := chat.client.HandleFunctionCall(userEntity, response)
-		if err != nil {
-			return llmclient.ChatResponse{}, nil
-		}
-		chatHistory = append(chatHistory, call_result.ModelResponse)
+		call_result := chat.client.HandleFunctionCall(userEntity, response)
 
-		response, err = chat.client.CallGemini(chatHistory, tools)
+		
+		messageString, err := json.Marshal(call_result)
+		if err != nil {
+			log.Println("can't marshal")
+		}
+		log.Println("RESPONSE TO FUNCTION CALL",string(messageString))
+		chatHistory = append(chatHistory, *call_result)
+
+		response, err = chat.client.CallGemini(chatHistory, tools, systemMessage)
+
+		if err != nil {
+			log.Println(err)
+			return llmclient.ChatResponse{}, err
+		}
 
 		chatHistory = append(chatHistory, llmclient.Message{
 			Role:  llmclient.MODEL,
 			Parts: response.Candidates[0].Content.Parts,
 		})
-		if err != nil {
-			return llmclient.ChatResponse{}, err
-		}
 		str, err := json.Marshal(response)
 		if err != nil {
 			log.Print(err)

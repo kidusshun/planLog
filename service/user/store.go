@@ -80,3 +80,23 @@ func (s *Store) UpdateUserRefreshToken(email, refreshToken string) error {
 	}
 	return nil
 }
+
+func (s *Store)AddCalendarIDToUser(id uuid.UUID, planCalendarId, logCalendarId string) error {
+	_ , err := s.db.Exec("INSERT INTO users_calendars (user_id, plans_id, logs_id) VALUES ($1, $2, $3)", id, planCalendarId, logCalendarId)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) GetCalendarIDByUserID(id uuid.UUID) (string, string, error) {
+	rows := s.db.QueryRow("SELECT plans_id, logs_id FROM users_calendars WHERE user_id = $1", id)
+
+	var plansID, logsID string
+	err := rows.Scan(&plansID, &logsID)
+	if err != nil {
+		return "", "", err
+	}
+	return plansID, logsID, nil
+}
