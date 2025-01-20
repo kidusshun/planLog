@@ -2,6 +2,9 @@ package llmclient
 
 import (
 	"errors"
+	"log"
+
+	"github.com/kidusshun/planLog/service/user"
 )
 
 
@@ -38,32 +41,47 @@ func (client *llmclient) CallGemini(messageHistory []Message, tools []Tool) (*Ge
 	return res, nil
 }
 
-func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) (*ToolCallResponse, error) {
-
+func (client *llmclient) HandleFunctionCall(userEntity *user.User, geminiresponse *GeminiResponseBody) (*ToolCallResponse, error) {
 	nameFunctionMap := map[string]interface{}{
-		"CreateEvents": client.tools.CreateEvents,
+		"CreateEvent": client.tools.CreateEvents,
 		"FetchEvents":   client.tools.FetchEvents,
 	}
 
 	functionCalls := geminiresponse.Candidates[0].Content.Parts
+	log.Println("CALLS", functionCalls)
 
 	for _, call := range functionCalls {
 		if call.FunctionCall.Name != "" {
 			functionName := call.FunctionCall.Name
 			args := call.FunctionCall.Args
+			log.Println("ARGS", args)
+			log.Println("FUNCTION", functionName)
 			if function, exists := nameFunctionMap[functionName]; exists {
 				switch functionName {
-				case "QueryProducts":
-					query, ok := args["query"].(string)
+				case "CreateEvent":
+					description, ok := args["description"].(string)
 					if !ok {
 						return &ToolCallResponse{}, errors.New("invalid argument for queryProducts")
 					}
-					result, err := function.(func(string) (*ToolCallResponse, error))(query)
+					summary, ok := args["summary"].(string)
+					if !ok {
+						return &ToolCallResponse{}, errors.New("invalid argument for queryProducts")
+					}
+					startTime, ok := args["start_time"].(string)
+					if !ok {
+						return &ToolCallResponse{}, errors.New("invalid argument for queryProducts")
+					}
+					endTime, ok := args["end_time"].(string)
+					if !ok {
+						return &ToolCallResponse{}, errors.New("invalid argument for queryProducts")
+					}
+					result, err := function.(func(string, string,string,string, *user.User) (*ToolCallResponse, error))(summary, description,startTime, endTime, userEntity)
 					if err != nil {
+						log.Println("creating event error", err)
 						return &ToolCallResponse{}, err
 					}
 					return result, nil
-				case "CompanyInfo":
+				case "FetchEvents":
 					query, ok := args["query"].(string)
 					if !ok {
 						return &ToolCallResponse{}, errors.New("invalid argument for companyInfo")
@@ -71,16 +89,6 @@ func (client *llmclient) HandleFunctionCall(geminiresponse *GeminiResponseBody) 
 					result,err := function.(func(string) (*ToolCallResponse, error))(query)
 					if err != nil {
 						return &ToolCallResponse{},err
-					}
-					return result, nil
-				case "TrackOrder":
-					orderID, ok := args["orderID"].(string)
-					if !ok {
-						return &ToolCallResponse{}, errors.New("invalid argument for trackOrder")
-					}
-					result, err := function.(func(string) (*ToolCallResponse, error))(orderID)
-					if err != nil {
-						return &ToolCallResponse{}, err
 					}
 					return result, nil
 				default:

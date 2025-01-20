@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/kidusshun/planLog/service/calendar"
+	"github.com/kidusshun/planLog/service/llmclient"
 	"github.com/kidusshun/planLog/service/user"
 )
 
@@ -41,7 +42,10 @@ func (s *APIServer) Run() error {
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(router)
 
-	calendarHandler := calendar.NewHandler(userStore)
+	llmTools := llmclient.NewQueryStore()
+	client := llmclient.NewLlmClient(llmTools)
+	calendarService := calendar.NewService(client, userStore)
+	calendarHandler := calendar.NewHandler(userStore, calendarService)
 	calendarHandler.RegisterRoutes(router)
 
 

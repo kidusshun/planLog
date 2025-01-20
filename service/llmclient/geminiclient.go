@@ -13,7 +13,7 @@ import (
 )
 
 func GeminiClient(userRequest GeminiRequestBody) (*GeminiResponseBody, error) {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-002:generateContent?key=%s", config.GeminiEnvs.GeminiAPIKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent?key=%s", config.GeminiEnvs.GeminiAPIKey)
 	jsonRequest, err := json.Marshal(userRequest)
 	if err != nil {
 		return nil, err

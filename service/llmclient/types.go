@@ -8,12 +8,12 @@ import (
 
 type LlmClient interface{
 	CallGemini(messageHistory []Message, tools []Tool) (*GeminiResponseBody, error)
-	HandleFunctionCall(geminiresponse *GeminiResponseBody)(*ToolCallResponse, error)
+	HandleFunctionCall(userEntity *user.User, geminiresponse *GeminiResponseBody)(*ToolCallResponse, error)
 }
 
 type Tools interface{
-	CreateEvents(summary, description string, user user.User) (*ToolCallResponse, error)
-	FetchEvents(query string) (*ToolCallResponse, error)
+	CreateEvents(summary, description, startTime, endTime, calendarId string, userEntity *user.User) (*ToolCallResponse, error)
+	FetchEvents(startTime, endTime, calendarId string, userEntity *user.User) (*ToolCallResponse, error)
 }
 
 type GeminiRequestBody struct {
@@ -167,7 +167,6 @@ type UsageMetadata struct {
 
 type ToolCallResponse struct {
 	ModelResponse Message `json:"model_response"`
-	Location string `json:"location"`
 }
 
 type ChatRequest struct {

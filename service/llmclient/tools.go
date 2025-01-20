@@ -2,8 +2,10 @@ package llmclient
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/kidusshun/planLog/service/auth"
 	"github.com/kidusshun/planLog/service/user"
@@ -14,16 +16,17 @@ import (
 type QueryStore struct {
 }
 
-func NewQueryStore(db *sql.DB) *QueryStore {
+func NewQueryStore() *QueryStore {
 	return &QueryStore{
 	}
 }
 
-func (s *QueryStore) CreateEvents(summary, description string, user user.User) (*ToolCallResponse, error) {
+func (s *QueryStore) CreateEvents(summary, description, startTime, endTime, calendarId string, userEntity *user.User) (*ToolCallResponse, error) {
+	log.Println("creating", startTime, endTime)
 	ctx := context.Background()
 
 	oauthToken := &oauth2.Token{
-		RefreshToken: user.GoogleRefreshToken, 
+		RefreshToken: userEntity.GoogleRefreshToken, 
 	}
 	client := auth.GoogleOAuthConfig.Client(ctx,oauthToken)
 
@@ -36,16 +39,16 @@ func (s *QueryStore) CreateEvents(summary, description string, user user.User) (
 		Summary:     summary,
 		Description: description,
 		Start: &calendar.EventDateTime{
-			DateTime: "2021-09-01T09:00:00-07:00",
+			DateTime: startTime,
 			TimeZone: "Africa/Addis_Ababa",
 		},
 		End: &calendar.EventDateTime{
-			DateTime: "2021-09-01T17:00:00-07:00",
+			DateTime: endTime,
 			TimeZone: "Africa/Addis_Ababa",
 		},
 
 	}
-	event, err = srv.Events.Insert("primary", event).Do()
+	event, err = srv.Events.Insert("Plans", event).Do()
 	if err != nil {
 		return &ToolCallResponse{}, err
 	}
@@ -70,8 +73,67 @@ func (s *QueryStore) CreateEvents(summary, description string, user user.User) (
 }
 
 
-func (s *QueryStore) FetchEvents(query string) (*ToolCallResponse, error)  {
-	return nil, nil
+func (s *QueryStore) FetchEvents(startTime, endTime, calendarId string, userEntity *user.User) (*ToolCallResponse, error)  {
+	ctx := context.Background()
+	start, err := time.Parse(time.RFC3339, startTime)
+	
+	if err != nil {
+		log.Printf("Invalid start time format: %v", err)
+		return nil, err
+	}
+	end, err := time.Parse(time.RFC3339, endTime)
+	
+	if err != nil {
+		log.Printf("Invalid start time format: %v", err)
+		return nil, err
+	}
+
+	oauthToken := &oauth2.Token{
+		RefreshToken: userEntity.GoogleRefreshToken, 
+	}
+	client := auth.GoogleOAuthConfig.Client(ctx,oauthToken)
+
+	srv, err := calendar.New(client)
+
+	if err != nil {
+		return nil, err
+	}
+
+	eventsCall := srv.Events.List(calendarId).
+		TimeMin(start.Format(time.RFC3339)).
+		TimeMax(end.Format(time.RFC3339)).
+		OrderBy("startTime").
+		SingleEvents(true)
+
+	events, err := eventsCall.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	eventsJSON, err := json.Marshal(events.Items)
+	if err != nil {
+		return nil, err
+	}
+
+	eventsString := string(eventsJSON)
+	response := Message{
+		Role: USER,
+		Parts: []Part{
+			{
+				FunctionResponse: &FunctionResponse{
+					Name: "CreateCalendar",
+					Response: Result{
+						Result: eventsString,
+					},
+				},
+			},
+		},
+	}
+
+	return &ToolCallResponse{
+		ModelResponse: response,
+	}, nil
+
 }
 
 
@@ -80,42 +142,47 @@ func GetTools() []Tool {
 		{
 			FunctionDeclarations: []FunctionDeclaration{
 				{
-					Name:        "QueryProducts",
-					Description: "a function to get products that matches the query passed",
+					Name:        "CreateEvents",
+					Description: "a function that lets you create events on google calendar",
 					Parameters: Parameters{
 						Type: "object",
 						Properties: map[string]Property{
-							"query": {
+							"summary": {
+								Type: "string",
+							},
+							"description": {
+								Type: "string",
+							},
+							"startTime": {
+								Type: "string",
+							},
+							"endTime": {
+								Type: "string",
+							},
+							"calendarId": {
 								Type: "string",
 							},
 						},
-						Required: []string{"query"},
+						Required: []string{"summary", "description", "startTime", "endTime", "calendarId"},
 					},
 				},
 				{
-					Name:        "CompanyInfo",
-					Description: "a function to ask questions about a company's identity and general info",
+					Name:        "FetchEvents",
+					Description: "a function to retrieve events within a given timeframe",
 					Parameters: Parameters{
 						Type: "object",
 						Properties: map[string]Property{
-							"query": {
+							"startTime": {
+								Type: "string",
+							},
+							"endTime": {
+								Type: "string",
+							},
+							"calendarId": {
 								Type: "string",
 							},
 						},
-						Required: []string{"query"},
-					},
-				},
-				{
-					Name:        "TrackOrder",
-					Description: "a function to get the location of a user's order ",
-					Parameters: Parameters{
-						Type: "object",
-						Properties: map[string]Property{
-							"orderID": {
-								Type: "string",
-							},
-						},
-						Required: []string{"orderID"},
+						Required: []string{"startTime", "endTime", "calendarId"},
 					},
 				},
 			},
