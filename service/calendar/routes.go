@@ -2,6 +2,7 @@ package calendar
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,7 +14,6 @@ import (
 	"github.com/kidusshun/planLog/service/user"
 	"github.com/kidusshun/planLog/utils"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/calendar/v3"
 )
 
 type Handler struct {
@@ -33,7 +33,7 @@ func NewHandler(store user.UserStore, service CalendarService) *Handler {
 func (h *Handler) RegisterRoutes(router chi.Router) {
 	router.With(auth.CheckBearerToken).Post("/initialize_calendar",h.createPlanAndLogCalendar)
 	router.With(auth.CheckBearerToken).Post("/plan_or_log", h.planAndLog)
-	router.With(auth.CheckBearerToken).Get("/calendars", h.calendars)
+	router.With(auth.CheckBearerToken).Post("/analyze_calendar", h.auditCalendar)
 
 }
 
@@ -62,7 +62,6 @@ func (h *Handler) createPlanAndLogCalendar(w http.ResponseWriter, r *http.Reques
 
 
 	utils.WriteJSON(w, http.StatusOK, response)
-
 }
 
 func (h *Handler) planAndLog(w http.ResponseWriter,r *http.Request) {
@@ -76,6 +75,7 @@ func (h *Handler) planAndLog(w http.ResponseWriter,r *http.Request) {
 	response, err := h.service.Transcribe(audioData, fileName)
 	
 	if err != nil {
+		log.Println("transcription err", err)
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}	
@@ -86,53 +86,32 @@ func (h *Handler) planAndLog(w http.ResponseWriter,r *http.Request) {
 	})
 
 	if err != nil {
+		log.Print()
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 	utils.WriteJSON(w, http.StatusOK, chatResponse)
 }
 
-func (h *Handler) calendars (w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	
+func (h *Handler) auditCalendar(w http.ResponseWriter, r *http.Request) {
 	userEmail := r.Context().Value("userEmail").(string)
-	user, err := h.store.GetUserByEmail(userEmail)
+	// Parse request body
+	var reqBody TimeRangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		log.Printf("Error parsing request body: %v", err)
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	defer r.Body.Close()
 
+	response, err := h.service.AnalyzeEvents(userEmail, reqBody.Start, reqBody.End)
 	if err != nil {
-		log.Println("error1",err)
+		log.Printf("Error analyzing events: %v", err)
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	// create calendar
-	log.Println("hereeeeee", user.GoogleRefreshToken)
-	oauthToken := &oauth2.Token{
-		RefreshToken: user.GoogleRefreshToken, 
-	}
-	client := auth.GoogleOAuthConfig.Client(ctx,oauthToken)
-
-	srv, err := calendar.New(client)
-	if err != nil {
-		log.Println("error2",err)
-		utils.WriteError(w, http.StatusInternalServerError, err)
-		return
-	}
-	calendarList, err := srv.CalendarList.List().Do()
-	if err != nil {
-		client, err = RefreshOAuthToken(ctx, user.Email, h.store, auth.GoogleOAuthConfig, user.GoogleRefreshToken)
-		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return
-		}
-		log.Println("Refreshing token...")
-		srv, err = calendar.New(client)
-		if err != nil {
-			utils.WriteError(w, http.StatusInternalServerError, err)
-			return
-		}
-	}
-
-	utils.WriteJSON(w, http.StatusOK, calendarList.Items)
+	utils.WriteJSON(w, http.StatusOK, response)
 }
 
 func parseAudioRequest(r *http.Request) ([]byte, string, error) {

@@ -193,6 +193,98 @@ func (service *Service) CreateCalendar(userEmail string) (*CreateCalendarRespons
 		LogCalendar:  updatedLogCal,
 	}, nil
 }
+
+func (service *Service) GetCalendarEvents(userEmail string, startDate, endDate string) (string, string, error) {
+	ctx := context.Background()
+
+	userEntity, err := service.store.GetUserByEmail(userEmail)
+
+	if err != nil {
+		return "", "", err
+	}
+	planCalendarId, logCalendarId, err := service.store.GetCalendarIDByUserID(userEntity.ID)
+	
+	if err != nil {
+		return "", "", err
+	}
+
+	oauthToken := &oauth2.Token{
+		RefreshToken: userEntity.GoogleRefreshToken, 
+	}
+	client := auth.GoogleOAuthConfig.Client(ctx,oauthToken)
+
+	srv, err := calendar.New(client)
+	if err != nil {
+		return "", "", err
+	}
+	planEvents, err := srv.Events.List(planCalendarId).
+		TimeMin(startDate).
+		TimeMax(endDate).
+		OrderBy("startTime").
+		SingleEvents(true).
+		Do()
+
+	if err != nil {
+		return "", "", err
+	}
+	
+		// Convert events.Items to string
+	eventsJSON, err := json.Marshal(planEvents.Items)
+	if err != nil {
+		return "", "", err
+	}
+	
+	planEventsString := string(eventsJSON)
+
+	logEvents, err := srv.Events.List(logCalendarId).
+		TimeMin(startDate).
+		TimeMax(endDate).
+		OrderBy("startTime").
+		SingleEvents(true).
+		Do()
+
+		if err != nil {
+			return "", "", err
+		}
+		
+			// Convert events.Items to string
+		logEventsJSON, err := json.Marshal(logEvents.Items)
+		if err != nil {
+			return "", "", err
+		}
+		
+		logEventsString := string(logEventsJSON)
+
+	return planEventsString, logEventsString, nil
+}
+
+func (service *Service) AnalyzeEvents(userEmail string, startDate, endDate string) (string, error) {
+	planEvents, logEvents, err := service.GetCalendarEvents(userEmail, startDate, endDate)
+	if err != nil {
+		return "", err
+	}
+	tools := llmclient.GetTools()
+
+	request := fmt.Sprintf(`This is my plan events %s and this is my log events %s. Analyze what my plan was and what I did and give me a report plus recommendation on improvement`, planEvents, logEvents)
+	chatHistory := []llmclient.Message{
+		{
+			Role: llmclient.USER,
+			Parts: []llmclient.Part{
+				{
+					Text: request,
+				},
+			},
+		},
+	}
+
+	response, err := service.client.CallGemini(chatHistory, tools, llmclient.SystemInstruction)
+
+	if err != nil {
+		return "", err
+	}
+
+	return response.Candidates[0].Content.Parts[0].Text, nil
+}
 func (service *Service) Transcribe(audioData []byte, fileName string) (*whisper.WhisperResponseBody, error) {
 	transcription, err := whisper.TranscribeAudio(audioData, fileName)
 	if err != nil {
